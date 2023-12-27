@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts.chat import (
     ChatPromptTemplate,
@@ -9,6 +10,8 @@ from langchain.chat_models import ChatOllama
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import PyPDFLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
+
+load_dotenv()
 
 messages = [
     SystemMessagePromptTemplate.from_template(
@@ -23,19 +26,26 @@ chat_model = ChatOllama(
 
 loader = PyPDFLoader("./llm_in_a_flash_apple.pdf")
 pages = loader.load_and_split()
-os.environ["OPENAI_API_KEY"] = ""
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
 
 print(pages[0])
 
-db = FAISS.from_documents(pages, embeddings)
-query = "What is the paper about?"
-docs = db.similarity_search(query)
 
-# ConversationalRetrievalChain.from_llm(
-#     llm=chat_model,
-#     retriever=db.as_retriever(search_type="similarity", search_kwargs={"k": 2}),
-#     chain_type="stuff",
-#     combine_docs_chain_kwargs={"prompt": qa_prompt},
-#     return_source_documents=True,
-# )
+db = None
+if not os.path.exists("./faiss_index"):
+    db = FAISS.from_documents(pages, embeddings)
+    db.save_local("./faiss_index")
+else:
+    db = FAISS.load_local("faiss_index", embeddings)
+
+query = "What is the paper about?"
+docs = db.similarity_search_with_score(query)
+print(docs[0])
+
+ConversationalRetrievalChain.from_llm(
+    llm=chat_model,
+    retriever=db.as_retriever(search_type="similarity", search_kwargs={"k": 0.8}),
+    verbose=True,
+    combine_docs_chain_kwargs={"prompt": qa_prompt},
+    return_source_documents=True,
+)
