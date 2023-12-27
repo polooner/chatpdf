@@ -23,7 +23,7 @@ chat_model = ChatOllama(
 
 loader = PyPDFLoader("./llm_in_a_flash_apple.pdf")
 pages = loader.load_and_split()
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = ""
 embeddings = OpenAIEmbeddings()
 
 print(pages[0])
